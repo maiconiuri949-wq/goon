@@ -1,0 +1,81 @@
+--// Strong Lua Obfuscator (VM Based)
+--// Version: 2.0.0
+--// Author: You
+
+local Obfuscator = {}
+
+--// Utils
+local function xor(str, key)
+    local out = {}
+    for i = 1, #str do
+        out[i] = string.char(bit32.bxor(str:byte(i), key))
+    end
+    return table.concat(out)
+end
+
+--// Compiler (Lua -> Custom Bytecode)
+local function compile(source)
+    local bytecode = {}
+
+    for i = 1, #source do
+        table.insert(bytecode, source:byte(i))
+    end
+
+    return bytecode
+end
+
+--// Serializer
+local function serialize(tbl)
+    local s = {}
+    for i, v in ipairs(tbl) do
+        s[i] = "\\" .. v
+    end
+    return '"' .. table.concat(s) .. '"'
+end
+
+--// VM Template
+local VM_TEMPLATE = [[
+local function __VM__(code, key)
+    local ip = 1
+    local out = {}
+
+    while ip <= #code do
+        local b = bit32.bxor(code[ip], key)
+        out[#out+1] = string.char(b)
+        ip = ip + 1
+    end
+
+    local f = loadstring(table.concat(out))
+    return f()
+end
+]]
+
+--// Main obfuscation
+function Obfuscator.Obfuscate(source)
+    local key = math.random(20, 200)
+
+    local bytecode = compile(source)
+
+    -- Encrypt
+    for i = 1, #bytecode do
+        bytecode[i] = bit32.bxor(bytecode[i], key)
+    end
+
+    local serialized = serialize(bytecode)
+
+    local result = [[
+--[[ Protected by VM Obfuscator ]]--
+
+local __CODE__ = ]] .. serialized .. [[
+
+]] .. VM_TEMPLATE .. [[
+
+__VM__({]] .. table.concat(bytecode, ",") .. [[}, ]] .. key .. [[)
+]]
+
+    return result
+end
+
+return function(source)
+    return Obfuscator.Obfuscate(source)
+end
